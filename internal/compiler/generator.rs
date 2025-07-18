@@ -27,6 +27,8 @@ pub mod cpp_live_reload;
 pub mod rust;
 #[cfg(feature = "rust")]
 pub mod rust_live_reload;
+#[cfg(feature = "csharp")]
+pub mod csharp;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutputFormat {
@@ -34,6 +36,8 @@ pub enum OutputFormat {
     Cpp(cpp::Config),
     #[cfg(feature = "rust")]
     Rust,
+    #[cfg(feature = "csharp")]
+    CSharp(csharp::Config),
     Interpreter,
     Llr,
 }
@@ -47,6 +51,8 @@ impl OutputFormat {
             }
             #[cfg(feature = "rust")]
             Some("rs") => Some(Self::Rust),
+            #[cfg(feature = "csharp")]
+            Some("cs") => Some(Self::CSharp(csharp::Config::default())),
             _ => None,
         }
     }
@@ -60,6 +66,8 @@ impl std::str::FromStr for OutputFormat {
             "cpp" => Ok(Self::Cpp(cpp::Config::default())),
             #[cfg(feature = "rust")]
             "rust" => Ok(Self::Rust),
+            #[cfg(feature = "csharp")]
+            "csharp" => Ok(Self::CSharp(csharp::Config::default())),
             "llr" => Ok(Self::Llr),
             _ => Err(format!("Unknown output format {s}")),
         }
@@ -84,6 +92,11 @@ pub fn generate(
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
             let output = rust::generate(doc, compiler_config)?;
+            write!(destination, "{output}")?;
+        }
+        #[cfg(feature = "csharp")]
+        OutputFormat::CSharp(config) => {
+            let output = csharp::generate(doc, config, compiler_config)?;
             write!(destination, "{output}")?;
         }
         OutputFormat::Interpreter => {

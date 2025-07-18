@@ -22,6 +22,7 @@ pub struct Config {
     pub assembly_name: Option<String>,
 }
 
+
 // Check if word is one of C# keywords
 fn is_csharp_keyword(word: &str) -> bool {
     matches!(
@@ -75,7 +76,8 @@ pub fn pascal_case(ident: &str) -> SmolStr {
 
 /// This module contains data structures that help represent C# code.
 pub mod csharp_ast {
-    use std::fmt::{Display, Error, Formatter};
+    use std::fmt::Write;
+use std::fmt::{Display, Error, Formatter};
     use smol_str::{format_smolstr, SmolStr};
 
     /// A full C# file
@@ -800,6 +802,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::BinaryExpression { lhs, rhs, op } => {
             let lhs_code = compile_expression(lhs, ctx);
             let rhs_code = compile_expression(rhs, ctx);
+            let mut buffer = [0; 3];
             let op_str = match op {
                 '=' => "==",
                 '!' => "!=",
@@ -808,7 +811,6 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 '&' => "&&",
                 '|' => "||",
                 _ => {
-                    let mut buffer = [0; 4];
                     op.encode_utf8(&mut buffer)
                 }
             };
@@ -993,7 +995,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ArrayLength => {
             ctx.generator_state.conditional_usings.system_linq.set(true);
-            format!("{}.Count()", args[0])
+            format!("{}.Count", args[0])
         }
         BuiltinFunction::Rgb => {
             format!("Slint.Color.FromArgb({}, {}, {}, {})", args[3], args[0], args[1], args[2])
@@ -1033,7 +1035,7 @@ fn compile_builtin_function_call(
         }
         _ => {
             // For functions not yet implemented, return a placeholder
-            format!("/* TODO: {} */default", function as u32)
+            format!("/* TODO: {:?} */default", function)
         }
     }
 }
