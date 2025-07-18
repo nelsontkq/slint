@@ -483,7 +483,11 @@ impl Type {
                 let param_types = callback.args.iter().map(|t| t.csharp_type()).collect::<Option<Vec<_>>>()?;
                 let return_type = callback.return_type.csharp_type()?;
                 if return_type == "void" {
-                    Some(format_smolstr!("Action<{}>", param_types.join(", ")))
+                    if param_types.is_empty() {
+                        Some(format_smolstr!("Action"))
+                    } else {
+                        Some(format_smolstr!("Action<{}>", param_types.join(", ")))
+                    }
                 } else {
                     Some(format_smolstr!("Func<{}, {}>", param_types.join(", "), return_type))
                 }
@@ -541,7 +545,7 @@ pub fn generate(
 
     // Add required usings
     file.usings.insert(0, "System".into());
-    file.usings.insert(1, "Slint".into());
+    file.usings.insert(1, "Slint.Net".into());
 
     Ok(file)
 }
@@ -643,7 +647,7 @@ fn generate_public_component(
         visibility: Some(Visibility::Public),
         return_type: "void".into(),
         body: Some(vec![
-            "Window.Show();".to_string(),
+            "Slint.Net.Window.Show();".to_string(),
         ]),
         ..Default::default()
     }));
@@ -654,7 +658,7 @@ fn generate_public_component(
         visibility: Some(Visibility::Public),
         return_type: "void".into(),
         body: Some(vec![
-            "Window.Hide();".to_string(),
+            "Slint.Net.Window.Hide();".to_string(),
         ]),
         ..Default::default()
     }));
@@ -674,7 +678,7 @@ fn generate_public_component(
     file.declarations.push(Declaration::Class(Class {
         name: component_name,
         visibility: Some(Visibility::Public),
-        base_class: Some("Slint.ComponentBase".into()),
+        base_class: Some("Slint.Net.ComponentBase".into()),
         members,
         ..Default::default()
     }));
