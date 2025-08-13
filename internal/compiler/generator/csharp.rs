@@ -545,7 +545,7 @@ pub fn generate(
 
     // Add required usings
     file.usings.insert(0, "System".into());
-    file.usings.insert(1, "Slint.Net".into());
+    file.usings.insert(1, "Slint.Inerop".into());
 
     Ok(file)
 }
@@ -647,7 +647,7 @@ fn generate_public_component(
         visibility: Some(Visibility::Public),
         return_type: "void".into(),
         body: Some(vec![
-            "Slint.Net.Window.Show();".to_string(),
+            "Slint.Interop.Window.Show();".to_string(),
         ]),
         ..Default::default()
     }));
@@ -658,7 +658,7 @@ fn generate_public_component(
         visibility: Some(Visibility::Public),
         return_type: "void".into(),
         body: Some(vec![
-            "Slint.Net.Window.Hide();".to_string(),
+            "Slint.Interop.Window.Hide();".to_string(),
         ]),
         ..Default::default()
     }));
@@ -667,7 +667,7 @@ fn generate_public_component(
     members.push(Declaration::Property(Property {
         name: "Window".into(),
         visibility: Some(Visibility::Public),
-        property_type: "Slint.Window".into(),
+        property_type: "Slint.Interop.Window".into(),
         is_auto: true,
         ..Default::default()
     }));
@@ -678,7 +678,7 @@ fn generate_public_component(
     file.declarations.push(Declaration::Class(Class {
         name: component_name,
         visibility: Some(Visibility::Public),
-        base_class: Some("Slint.Net.ComponentBase".into()),
+        base_class: Some("Slint.Interop.ComponentBase".into()),
         members,
         ..Default::default()
     }));
@@ -856,23 +856,23 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let enum_name = if value.enumeration.node.is_some() {
                 pascal_case(&value.enumeration.name)
             } else {
-                format_smolstr!("Slint.{}", pascal_case(&value.enumeration.name))
+                pascal_case(&value.enumeration.name)
             };
             let value_name = pascal_case(&value.to_pascal_case());
             format!("{}.{}", enum_name, value_name)
         }
         Expression::EasingCurve(curve) => {
             match curve {
-                EasingCurve::Linear => "Slint.EasingCurve.Linear".to_string(),
+                EasingCurve::Linear => "Slint.Interop.EasingCurve.Linear".to_string(),
                 EasingCurve::CubicBezier(a, b, c, d) => {
-                    format!("Slint.EasingCurve.CubicBezier({}, {}, {}, {})", a, b, c, d)
+                    format!("Slint.Interop.EasingCurve.CubicBezier({}, {}, {}, {})", a, b, c, d)
                 }
-                EasingCurve::EaseInElastic => "Slint.EasingCurve.EaseInElastic".to_string(),
-                EasingCurve::EaseOutElastic => "Slint.EasingCurve.EaseOutElastic".to_string(),
-                EasingCurve::EaseInOutElastic => "Slint.EasingCurve.EaseInOutElastic".to_string(),
-                EasingCurve::EaseInBounce => "Slint.EasingCurve.EaseInBounce".to_string(),
-                EasingCurve::EaseOutBounce => "Slint.EasingCurve.EaseOutBounce".to_string(),
-                EasingCurve::EaseInOutBounce => "Slint.EasingCurve.EaseInOutBounce".to_string(),
+                EasingCurve::EaseInElastic => ".Interop.EasingCurve.EaseInElastic".to_string(),
+                EasingCurve::EaseOutElastic => "Slint.Interop.EasingCurve.EaseOutElastic".to_string(),
+                EasingCurve::EaseInOutElastic => "Slint.Interop.EasingCurve.EaseInOutElastic".to_string(),
+                EasingCurve::EaseInBounce => "Slint.Interop.EasingCurve.EaseInBounce".to_string(),
+                EasingCurve::EaseOutBounce => "Slint.Interop.EasingCurve.EaseOutBounce".to_string(),
+                EasingCurve::EaseInOutBounce => "Slint.Interop.EasingCurve.EaseInOutBounce".to_string(),
             }
         }
         Expression::LinearGradient { angle, stops } => {
@@ -880,29 +880,29 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let stops_code = stops.iter().map(|(color, stop)| {
                 let color_code = compile_expression(color, ctx);
                 let stop_code = compile_expression(stop, ctx);
-                format!("new Slint.GradientStop({}, {})", color_code, stop_code)
+                format!("new Slint.Interop.GradientStop({}, {})", color_code, stop_code)
             }).collect::<Vec<_>>();
-            format!("new Slint.LinearGradient({}, new[] {{ {} }})", angle_code, stops_code.join(", "))
+            format!("new Slint.Interop.LinearGradient({}, new[] {{ {} }})", angle_code, stops_code.join(", "))
         }
         Expression::RadialGradient { stops } => {
             let stops_code = stops.iter().map(|(color, stop)| {
                 let color_code = compile_expression(color, ctx);
                 let stop_code = compile_expression(stop, ctx);
-                format!("new Slint.GradientStop({}, {})", color_code, stop_code)
+                format!("new Slint.Interop.GradientStop({}, {})", color_code, stop_code)
             }).collect::<Vec<_>>();
-            format!("new Slint.RadialGradient(new[] {{ {} }})", stops_code.join(", "))
+            format!("new Slint.Interop.RadialGradient(new[] {{ {} }})", stops_code.join(", "))
         }
         Expression::ImageReference { resource_ref, nine_slice } => {
             let image_code = match resource_ref {
-                crate::expression_tree::ImageReference::None => "Slint.Image.Empty".to_string(),
+                crate::expression_tree::ImageReference::None => "Slint.Interop.Image.Empty".to_string(),
                 crate::expression_tree::ImageReference::AbsolutePath(path) => {
-                    format!(r#"Slint.Image.LoadFromPath("{}")"#, escape_string(path.as_str()))
+                    format!(r#"Slint.Interop.Image.LoadFromPath("{}")"#, escape_string(path.as_str()))
                 }
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension: _ } => {
-                    format!("Slint.Image.LoadFromEmbeddedData(EmbeddedResources.Resource{})", resource_id)
+                    format!("Slint.Interop.Image.LoadFromEmbeddedData(EmbeddedResources.Resource{})", resource_id)
                 }
                 crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
-                    format!("Slint.Image.LoadFromEmbeddedTexture(EmbeddedTextures.Texture{})", resource_id)
+                    format!("Slint.Interop.Image.LoadFromEmbeddedTexture(EmbeddedTextures.Texture{})", resource_id)
                 }
             };
             
@@ -1002,10 +1002,10 @@ fn compile_builtin_function_call(
             format!("{}.Count", args[0])
         }
         BuiltinFunction::Rgb => {
-            format!("Slint.Color.FromArgb({}, {}, {}, {})", args[3], args[0], args[1], args[2])
+            format!("Slint.Interop.Color.FromArgb({}, {}, {}, {})", args[3], args[0], args[1], args[2])
         }
         BuiltinFunction::Hsv => {
-            format!("Slint.Color.FromHsva({}, {}, {}, {})", args[0], args[1], args[2], args[3])
+            format!("Slint.Interop.Color.FromHsva({}, {}, {}, {})", args[0], args[1], args[2], args[3])
         }
         BuiltinFunction::ColorBrighter => {
             format!("{}.Brighter({})", args[0], args[1])
@@ -1035,7 +1035,7 @@ fn compile_builtin_function_call(
             "Window.DefaultFontSize".to_string()
         }
         BuiltinFunction::AnimationTick => {
-            "Slint.AnimationTick()".to_string()
+            "Slint.Interop.AnimationTick()".to_string()
         }
         _ => {
             // For functions not yet implemented, return a placeholder
