@@ -3,7 +3,7 @@
 
 // cSpell: ignore Heade
 
-import { Button, TabWidget } from "std-widgets.slint";
+import { Button, TabWidget, Palette } from "std-widgets.slint";
 import { Api, ComponentItem, DiagnosticSummary } from "api.slint";
 
 import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles } from "./components/styling.slint";
@@ -13,6 +13,7 @@ import { LibraryView } from "./views/library-view.slint";
 import { DrawAreaMode, PreviewView } from "./views/preview-view.slint";
 import { OutOfDateBox } from "./components/out-of-date-box.slint";
 import { PropertyView } from "./views/property-view.slint";
+import { OutlineView } from "./views/outline-view.slint";
 import { PreviewDataView } from "./views/preview-data-view.slint";
 import { WindowGlobal, WindowManager } from "windowglobal.slint";
 import { ColorPickerView } from "components/widgets/floating-brush-picker-widget.slint";
@@ -43,12 +44,63 @@ export component PreviewUi inherits Window {
     icon: @image-url("assets/slint-logo-small-light.png");
     always-on-top <=> Api.always-on-top;
 
+    MenuBar {
+        Menu {
+            title: @tr("File");
+            MenuItem {
+                title: @tr("Reload");
+                activated => {
+                    Api.reload-preview();
+                }
+            }
+        }
+
+        Menu {
+            title: @tr("Edit");
+            MenuItem {
+                title: @tr("Undo");
+                activated => {
+                    Api.undo();
+                }
+            }
+
+            MenuItem {
+                title: @tr("Redo");
+                activated => {
+                    Api.redo();
+                }
+            }
+        }
+
+        Menu {
+            title: @tr("Window");
+            kot := MenuItem {
+                title: @tr("Keep on Top");
+                activated => {
+                    Api.always-on-top = !Api.always-on-top;
+                    if Api.always-on-top {
+                        kot.title = @tr("Remove from Top");
+                    } else {
+                        kot.title = @tr("Keep on Top");
+                    }
+                }
+            }
+        }
+    }
+
+    Button {
+        icon: Icons.sync;
+        colorize-icon: true;
+        clicked => {
+            Api.reload-preview();
+        }
+    }
+
     init => {
         WindowGlobal.window-width = self.width;
         WindowGlobal.window-height = self.height;
         initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
     }
-
     changed width => {
         WindowGlobal.window-width = self.width;
         initial-floating-x = (self.width - PickerStyles.picker-width - 350px).max(0);
@@ -77,7 +129,6 @@ export component PreviewUi inherits Window {
                     style-selected => {
                         Api.style-changed();
                     }
-
                     edit := Button {
                         icon: Icons.inspect;
                         colorize-icon: preview.select-mode ? false : true;
@@ -109,15 +160,41 @@ export component PreviewUi inherits Window {
                             width: 4px;
                             background: @linear-gradient(90deg, #0000, #0002);
                         }
+
                         VerticalLayout {
                             tw := TabWidget {
-                                width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding*2);
+                                width: EditorSizeSettings.property-bar-width - (EditorSpaceSettings.default-padding * 2);
                                 current-index: 0;
                                 Tab {
                                     title: @tr("Properties");
-                                    if tw.current-index == 0: PropertyView {
-                                        opacity: preview.preview-is-current ? 1.0 : 0.3;
-                                        enabled: preview.preview-is-current;
+                                    if tw.current-index == 0: Rectangle {
+                                        property <float> ratio: 50%;
+                                        w1 := PropertyView {
+                                            y: 0;
+                                            height: (parent.height - splitter.height) * ratio;
+                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                            enabled: preview.preview-is-current;
+                                        }
+
+                                        splitter := TouchArea {
+                                            y: w1.height;
+                                            height: 3px;
+                                            moved => {
+                                                ratio = Math.clamp((self.y + self.mouse-y - self.pressed-y) / (parent.height - splitter.height), 0, 1);
+                                            }
+                                            mouse-cursor: ns-resize;
+
+                                            Rectangle {
+                                                background: Palette.border;
+                                            }
+                                        }
+
+                                        w2 := OutlineView {
+                                            y: splitter.y + splitter.height;
+                                            height: parent.height - self.y;
+                                            opacity: preview.preview-is-current ? 1.0 : 0.3;
+                                            enabled: preview.preview-is-current;
+                                        }
                                     }
                                 }
 
@@ -131,8 +208,8 @@ export component PreviewUi inherits Window {
                             }
                         }
                     }
-
                 }
+
                 ConsolePanel { }
 
                 StatusLine { }
@@ -158,7 +235,6 @@ export component PreviewUi inherits Window {
         }
     }
 
-
     if show-floating-widget: ColorPickerView {
         init => {
             self.initial-x = root.initial-floating-x;
@@ -181,5 +257,4 @@ export component PreviewUi inherits Window {
             WindowManager.hide-color-stop-picker();
         }
     }
-
 }

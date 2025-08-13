@@ -12,6 +12,7 @@ use crate::input::{
     KeyEventResult, KeyEventType, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
+use crate::items::FocusPolicy;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths};
 #[cfg(feature = "rtti")]
@@ -81,6 +82,10 @@ impl Item for TouchArea {
                     modifiers: window_adapter.window().0.modifiers.get().into(),
                 },));
             }
+            return InputEventFilterResult::ForwardAndIgnore;
+        }
+        if matches!(event, MouseEvent::DragMove(..) | MouseEvent::Drop(..)) {
+            // Someone else has the grab, don't handle hover
             return InputEventFilterResult::ForwardAndIgnore;
         }
         if let Some(pos) = event.position() {
@@ -206,6 +211,15 @@ impl Item for TouchArea {
         }
     }
 
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
@@ -262,8 +276,11 @@ impl ItemConsts for TouchArea {
 pub struct FocusScope {
     pub enabled: Property<bool>,
     pub has_focus: Property<bool>,
+    pub focus_policy: Property<FocusPolicy>,
     pub key_pressed: Callback<KeyEventArg, EventResult>,
     pub key_released: Callback<KeyEventArg, EventResult>,
+    pub capture_key_pressed: Callback<KeyEventArg, EventResult>,
+    pub capture_key_released: Callback<KeyEventArg, EventResult>,
     pub focus_changed_event: Callback<FocusReasonArg>,
     pub focus_gained: Callback<FocusReasonArg>,
     pub focus_lost: Callback<FocusReasonArg>,
@@ -298,7 +315,11 @@ impl Item for FocusScope {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> InputEventResult {
-        if self.enabled() && matches!(event, MouseEvent::Pressed { .. }) && !self.has_focus() {
+        if self.enabled()
+            && self.focus_policy() != FocusPolicy::TabOnly
+            && matches!(event, MouseEvent::Pressed { .. })
+            && !self.has_focus()
+        {
             WindowInner::from_pub(window_adapter.window()).set_focus_item(
                 self_rc,
                 true,
@@ -307,6 +328,29 @@ impl Item for FocusScope {
             InputEventResult::EventAccepted
         } else {
             InputEventResult::EventIgnored
+        }
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        event: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        let r = match event.event_type {
+            KeyEventType::KeyPressed => {
+                Self::FIELD_OFFSETS.capture_key_pressed.apply_pin(self).call(&(event.clone(),))
+            }
+            KeyEventType::KeyReleased => {
+                Self::FIELD_OFFSETS.capture_key_released.apply_pin(self).call(&(event.clone(),))
+            }
+            KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
+                EventResult::Reject
+            }
+        };
+        match r {
+            EventResult::Accept => KeyEventResult::EventAccepted,
+            EventResult::Reject => KeyEventResult::EventIgnored,
         }
     }
 
@@ -343,16 +387,30 @@ impl Item for FocusScope {
             return FocusEventResult::FocusIgnored;
         }
 
-        match event {
-            FocusEvent::FocusIn(reason) => {
-                self.has_focus.set(true);
-                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&((*reason,)));
-                Self::FIELD_OFFSETS.focus_gained.apply_pin(self).call(&((*reason,)));
+        let reason = match event {
+            FocusEvent::FocusIn(reason) | FocusEvent::FocusOut(reason) => *reason,
+        };
+
+        match (reason, self.focus_policy()) {
+            (FocusReason::TabNavigation, FocusPolicy::ClickOnly) => {
+                return FocusEventResult::FocusIgnored
             }
-            FocusEvent::FocusOut(reason) => {
+            (FocusReason::PointerClick, FocusPolicy::TabOnly) => {
+                return FocusEventResult::FocusIgnored
+            }
+            _ => (),
+        }
+
+        match event {
+            FocusEvent::FocusIn(_) => {
+                self.has_focus.set(true);
+                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&((reason,)));
+                Self::FIELD_OFFSETS.focus_gained.apply_pin(self).call(&((reason,)));
+            }
+            FocusEvent::FocusOut(_) => {
                 self.has_focus.set(false);
-                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&((*reason,)));
-                Self::FIELD_OFFSETS.focus_lost.apply_pin(self).call(&((*reason,)));
+                Self::FIELD_OFFSETS.focus_changed_event.apply_pin(self).call(&((reason,)));
+                Self::FIELD_OFFSETS.focus_lost.apply_pin(self).call(&((reason,)));
             }
         }
         FocusEventResult::FocusAccepted
@@ -545,6 +603,15 @@ impl Item for SwipeGestureHandler {
             MouseEvent::Wheel { .. } => InputEventResult::EventIgnored,
             MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
         }
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
     }
 
     fn key_event(

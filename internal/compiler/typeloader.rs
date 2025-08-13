@@ -640,11 +640,12 @@ impl Snapshotter {
         }
     }
 
-    fn snapshot_timer(&mut self, popup_window: &object_tree::Timer) -> object_tree::Timer {
+    fn snapshot_timer(&mut self, timer: &object_tree::Timer) -> object_tree::Timer {
         object_tree::Timer {
-            interval: popup_window.interval.snapshot(self),
-            running: popup_window.running.snapshot(self),
-            triggered: popup_window.triggered.snapshot(self),
+            interval: timer.interval.snapshot(self),
+            running: timer.running.snapshot(self),
+            triggered: timer.triggered.snapshot(self),
+            element: timer.element.clone(),
         }
     }
 
@@ -804,6 +805,12 @@ impl Snapshotter {
                     .collect(),
             },
             Expression::RadialGradient { stops } => Expression::RadialGradient {
+                stops: stops
+                    .iter()
+                    .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
+                    .collect(),
+            },
+            Expression::ConicGradient { stops } => Expression::ConicGradient {
                 stops: stops
                     .iter()
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))

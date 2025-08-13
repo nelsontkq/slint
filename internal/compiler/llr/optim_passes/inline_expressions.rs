@@ -63,6 +63,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::EasingCurve(_) => 1,
         Expression::LinearGradient { .. } => ALLOC_COST,
         Expression::RadialGradient { .. } => ALLOC_COST,
+        Expression::ConicGradient { .. } => ALLOC_COST,
         Expression::EnumerationValue(_) => 0,
         Expression::LayoutCacheAccess { .. } => PROPERTY_ACCESS_COST,
         Expression::BoxLayoutFunction { .. } => return isize::MAX,
@@ -150,6 +151,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::Use24HourFormat => 2 * ALLOC_COST + PROPERTY_ACCESS_COST,
         BuiltinFunction::UpdateTimers => 10,
         BuiltinFunction::DetectOperatingSystem => 10,
+        BuiltinFunction::StartTimer => 10,
+        BuiltinFunction::StopTimer => 10,
+        BuiltinFunction::RestartTimer => 10,
     }
 }
 
